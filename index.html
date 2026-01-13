@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ours Trip ฝันดีนะ...อย่าดื้อกับหมอนใบนั้นที่เธอใช้นอนฝันยามหนุน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Prompt', sans-serif; background-color: #F8FAFC; -webkit-tap-highlight-color: transparent; }
+        
+        .ios-card { 
+            background: white; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Animation สำหรับการสลับตำแหน่ง */
+        .list-move { transition: transform 0.4s; }
+        
+        .btn-gradient { background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%); }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <header class="pt-12 pb-4 px-6 bg-white shadow-sm z-20 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-indigo-600">✈️ 🌴 Ours Trips 🌎 🌊</h1>
+            <p class="text-xs text-green-500 font-medium flex items-center gap-1">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> ✈️ ฝันดีนะ...อย่าดื้อกับหมอนใบนั้นที่เธอใช้นอนฝันยามหนุน 😴
+            </p>
+        </div>
+        <button onclick="app.openRouteMap()" class="bg-indigo-50 text-indigo-600 px-3 py-2 rounded-xl text-xs font-bold border border-indigo-100 hover:bg-indigo-100 transition">
+            <i class="fas fa-map-marked-alt text-lg"></i><br>แผนที่
+        </button>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar" id="listContainer">
+        <div id="loading" class="text-center mt-20 text-slate-400">
+            <i class="fas fa-circle-notch fa-spin text-2xl"></i><br>กำลังเชื่อมต่อ...
+        </div>
+        <ul id="placeList" class="space-y-3 relative"></ul>
+    </main>
+
+    <button onclick="app.openAddModal()" 
+            class="fixed bottom-8 right-6 w-16 h-16 btn-gradient text-white rounded-full shadow-xl shadow-indigo-200 flex items-center justify-center text-2xl z-30 hover:scale-110 active:scale-90 transition duration-300">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <div id="addModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-96 p-8 rounded-t-3xl sm:rounded-2xl shadow-2xl">
+            <h2 class="text-xl font-bold mb-4">เพิ่มสถานที่ 📍</h2>
+            <input type="text" id="newPlaceName" placeholder="เช่น โรงแรม, วัด, คาเฟ่ ..." 
+                   class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg">
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('addModal').classList.add('hidden')" class="flex-1 py-3 text-slate-500 bg-slate-100 rounded-xl font-bold">ยกเลิก</button>
+                <button onclick="app.addPlace()" class="flex-1 py-3 text-white bg-indigo-600 rounded-xl font-bold shadow-lg">เพิ่มเลย</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="fixed inset-0 bg-white z-50 hidden flex flex-col">
+        <div class="pt-12 pb-2 px-4 flex justify-between items-center border-b bg-white shadow-sm">
+            <h3 id="infoTitle" class="font-bold text-lg truncate pr-4">รายละเอียด</h3>
+            <button onclick="document.getElementById('infoModal').classList.add('hidden')" class="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center text-slate-500"><i class="fas fa-times"></i></button>
+        </div>
+        <iframe id="googleFrame" class="w-full h-full border-0"></iframe>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, remove, update } 
+        from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        // --- 🔴 ใส่ Config เดิมของคุณตรงนี้ ---
+        const firebaseConfig = {
+		apiKey: "AIzaSyCnugIC3-WQ5bA-cMN992qBKAii4lywwiA",
+ 		authDomain: "ours-trips.firebaseapp.com",
+  		databaseURL: "https://ours-trips-default-rtdb.asia-southeast1.firebasedatabase.app",
+  		projectId: "ours-trips",
+  		storageBucket: "ours-trips.firebasestorage.app",
+  		messagingSenderId: "364744279782",
+  		appId: "1:364744279782:web:b741af581f97b8d1081d27"
+};
+       
+        // ----------------------------------
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const db = getDatabase(firebaseApp);
+        const tripRef = ref(db, 'trips/group1');
+
+        window.app = {
+            localData: [], // เก็บข้อมูลไว้ในตัวแปรเพื่อใช้คำนวณการสลับ
+
+            addPlace: function() {
+                const name = document.getElementById('newPlaceName').value.trim();
+                if (!name) return;
+
+                // ใช้ timestamp เป็นค่า order เริ่มต้น (เพื่อให้ต่อท้ายสุด)
+                const now = Date.now();
+                push(tripRef, {
+                    name: name,
+                    order: now 
+                });
+
+                document.getElementById('newPlaceName').value = '';
+                document.getElementById('addModal').classList.add('hidden');
+            },
+
+            deleteItem: function(key) {
+                if(confirm('ลบรายการนี้?')) {
+                    remove(ref(db, 'trips/group1/' + key));
+                }
+            },
+
+            // --- ฟังก์ชันสลับลำดับ (หัวใจสำคัญ) ---
+            moveItem: function(index, direction) {
+                const currentItem = window.app.localData[index];
+                const targetItem = window.app.localData[index + direction];
+
+                if (!targetItem) return; // ถ้าไม่มีตัวให้สลับ (บนสุด/ล่างสุด) ก็จบ
+
+                // สลับค่า order กันในฐานข้อมูล
+                const updates = {};
+                updates['trips/group1/' + currentItem.key + '/order'] = targetItem.order;
+                updates['trips/group1/' + targetItem.key + '/order'] = currentItem.order;
+
+                // อัปเดตขึ้น Firebase (หน้าจอเพื่อนจะเปลี่ยนเอง)
+                update(ref(db), updates);
+            },
+            // ------------------------------------
+
+            openAddModal: function() {
+                document.getElementById('addModal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('newPlaceName').focus(), 100);
+            },
+
+            showInfo: function(name) {
+                document.getElementById('infoTitle').innerText = name;
+                document.getElementById('infoModal').classList.remove('hidden');
+                document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' เวลาเปิดปิด')}&igu=1`;
+            },
+
+            openRouteMap: function() {
+                if (window.app.localData.length === 0) return alert('เพิ่มสถานที่ก่อนนะครับ');
+                const placesQuery = window.app.localData.map(item => encodeURIComponent(item.name)).join('/');
+                window.open(`https://www.google.com/maps/dir/${placesQuery}`, '_blank');
+            }
+        };
+
+        // Real-time Listener
+        onValue(tripRef, (snapshot) => {
+            document.getElementById('loading').style.display = 'none';
+            const list = document.getElementById('placeList');
+            list.innerHTML = '';
+            
+            const data = snapshot.val();
+            if (data) {
+                // แปลงเป็น Array และเรียงตามค่า 'order'
+                const items = Object.entries(data).map(([key, value]) => ({ key, ...value }));
+                
+                // Sort by order (ถ้าไม่มี order ให้ใช้ key แทนเพื่อกัน error)
+                items.sort((a, b) => (a.order || 0) - (b.order || 0));
+                
+                window.app.localData = items; // เก็บเข้าตัวแปรกลาง
+
+                items.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'ios-card p-3 flex flex-col border-l-4 border-indigo-400';
+                    
+                    // ปุ่มสลับลำดับ (ซ่อนปุ่มขึ้นในตัวแรก / ซ่อนปุ่มลงในตัวสุดท้าย)
+                    const upBtn = index === 0 ? 'invisible' : '';
+                    const downBtn = index === items.length - 1 ? 'invisible' : '';
+
+                    li.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-3 overflow-hidden flex-1">
+                                <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0 flex items-center justify-center font-bold text-sm">
+                                    ${index + 1}
+                                </div>
+                                <span class="font-bold text-lg text-slate-800 truncate">${item.name}</span>
+                            </div>
+                            
+                            <div class="flex flex-col gap-0.5">
+                                <button onclick="window.app.moveItem(${index}, -1)" class="w-8 h-6 bg-slate-50 hover:bg-indigo-100 rounded text-slate-400 hover:text-indigo-600 ${upBtn}">
+                                    <i class="fas fa-chevron-up text-xs"></i>
+                                </button>
+                                <button onclick="window.app.moveItem(${index}, 1)" class="w-8 h-6 bg-slate-50 hover:bg-indigo-100 rounded text-slate-400 hover:text-indigo-600 ${downBtn}">
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                             <button onclick="window.app.showInfo('${item.name}')" 
+                                class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2">
+                                <i class="fab fa-google"></i> ดูข้อมูล
+                            </button>
+                            <button onclick="window.app.deleteItem('${item.key}')" 
+                                class="w-10 bg-red-50 text-red-400 rounded-lg hover:text-red-600 hover:bg-red-100 transition">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            } else {
+                window.app.localData = [];
+                list.innerHTML = `<div class="text-center text-slate-400 mt-10 opacity-50">ยังไม่มีสถานที่</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
