@@ -12,6 +12,10 @@
         body { font-family: 'Prompt', sans-serif; background-color: #F8FAFC; -webkit-tap-highlight-color: transparent; }
         .ios-card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-gradient { background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%); }
+        
+        /* ซ่อน Scrollbar แต่ยังเลื่อนได้ */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* Animation กรอบกระพริบ */
         @keyframes blinkBorder {
@@ -46,24 +50,28 @@
     </header>
 
     <main class="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar" id="listContainer">
+        
         <div id="loading" class="text-center mt-20 text-slate-400">
             <i class="fas fa-circle-notch fa-spin"></i> กำลังโหลด...
         </div>
-        <ul id="placeList" class="space-y-3 relative"></ul>
+
         <ul id="placeList" class="space-y-3 relative"></ul>
         
         <div class="mt-8 mb-4 border-t border-slate-200 pt-4">
-            <h3 class="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wide px-2"><i class="far fa-comments"></i> Chat Room</h3>
-            <div id="chatBox" class="h-48 overflow-y-auto bg-slate-100 rounded-xl p-3 space-y-2 mb-2 border border-slate-200">
+            <div class="flex justify-between items-end mb-2 px-2">
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wide"><i class="far fa-comments"></i> Chat Room</h3>
+                <button onclick="app.resetName()" class="text-[10px] text-indigo-400 hover:text-indigo-600 underline">เปลี่ยนชื่อเล่น</button>
+            </div>
+            
+            <div id="chatBox" class="h-64 overflow-y-auto bg-slate-100 rounded-xl p-3 flex flex-col gap-2 mb-2 border border-slate-200 shadow-inner">
                 <div class="text-center text-xs text-slate-400 mt-20">Start chatting...</div>
             </div>
+            
             <div class="flex gap-2">
-                <input type="text" id="chatInput" placeholder="Type here..." class="flex-1 p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm">
+                <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." class="flex-1 p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm">
                 <button onclick="app.sendChat()" class="bg-indigo-500 text-white px-4 rounded-xl shadow-sm hover:bg-indigo-600 transition"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
-        
-        </main>
     </main>
 
     <button onclick="app.openAddModal()" class="fixed bottom-8 right-6 w-16 h-16 btn-gradient text-white rounded-full shadow-xl flex items-center justify-center text-2xl z-30 transition hover:scale-110 active:scale-90">
@@ -95,7 +103,7 @@
         </div>
         <div class="p-4 bg-white border-t safe-area-pb">
             <button onclick="app.openExternal()" class="w-full py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-100">
-                <i class="fas fa-external-link-alt"></i> เปิดใน Google Maps
+                <i class="fas fa-external-link-alt"></i> เปิดใน Google Maps App
             </button>
         </div>
     </div>
@@ -105,26 +113,52 @@
         import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         // --- 🔴 ใส่ Config เดิมตรงนี้ ---
-        // Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyAbm9E9R2CB9Ms5XHtgX7wqDqR8xRpohQg",
-  authDomain: "mind-tripz.firebaseapp.com",
-  databaseURL: "https://mind-tripz-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "mind-tripz",
-  storageBucket: "mind-tripz.firebasestorage.app",
-  messagingSenderId: "7159039265",
-  appId: "1:7159039265:web:471d2f306f8a3d5d512a60"
-};
+        const firebaseConfig = {
+          apiKey: "AIzaSyAbm9E9R2CB9Ms5XHtgX7wqDqR8xRpohQg",
+          authDomain: "mind-tripz.firebaseapp.com",
+          databaseURL: "https://mind-tripz-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "mind-tripz",
+          storageBucket: "mind-tripz.firebasestorage.app",
+          messagingSenderId: "7159039265",
+          appId: "1:7159039265:web:471d2f306f8a3d5d512a60"
+        };
         // -----------------------------
 
         const firebaseApp = initializeApp(firebaseConfig);
         const db = getDatabase(firebaseApp);
+        
+        // References
         const tripRef = ref(db, 'trips/group1');
         const bannerRef = ref(db, 'trips/announcement');
         const chatRef = ref(db, 'trips/chat');
+
         window.app = {
             localData: [],
             currentPlaceName: '',
+            userName: localStorage.getItem('trip_username') || '',
+
+            init: function() {
+                if (!this.userName) {
+                    this.askName();
+                }
+            },
+
+            askName: function() {
+                let name = prompt("กรุณาใส่ชื่อเล่นของคุณ (เพื่อใช้ในแชท):");
+                if (name && name.trim() !== "") {
+                    this.userName = name.trim();
+                    localStorage.setItem('trip_username', this.userName);
+                } else {
+                    this.userName = "นิรนาม";
+                    localStorage.setItem('trip_username', "นิรนาม");
+                }
+            },
+
+            resetName: function() {
+                localStorage.removeItem('trip_username');
+                this.askName();
+                location.reload(); // รีโหลดหน้าเพื่ออัปเดตแชทเก่าๆ ถ้าจำเป็น
+            },
 
             addPlace: function() {
                 const name = document.getElementById('newPlaceName').value.trim();
@@ -133,7 +167,9 @@ const firebaseConfig = {
                 document.getElementById('newPlaceName').value = '';
                 document.getElementById('addModal').classList.add('hidden');
             },
-            deleteItem: function(key) { if(confirm('ลบ?')) remove(ref(db, 'trips/group1/' + key)); },
+
+            deleteItem: function(key) { if(confirm('ลบสถานที่นี้?')) remove(ref(db, 'trips/group1/' + key)); },
+
             moveItem: function(index, direction) {
                 const current = window.app.localData[index];
                 const target = window.app.localData[index + direction];
@@ -143,33 +179,53 @@ const firebaseConfig = {
                 updates['trips/group1/' + target.key + '/order'] = current.order;
                 update(ref(db), updates);
             },
+
             openAddModal: function() {
                 document.getElementById('addModal').classList.remove('hidden');
                 setTimeout(() => document.getElementById('newPlaceName').focus(), 100);
             },
+
             showInfo: function(name) {
                 window.app.currentPlaceName = name;
                 document.getElementById('infoTitle').innerText = name;
                 document.getElementById('infoModal').classList.remove('hidden');
-                document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' แผนที่ รีวิว')}&igu=1`;
+                // ใช้ URL Search ปกติ (อาจติด X-Frame แต่ดีกว่าจอขาว) หรือใช้ Bing Maps Embed จะง่ายกว่าถ้าไม่มี API Key
+                // แต่เพื่อความง่าย ใช้ Google Search query 
+                document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' รีวิว')}&igu=1`;
             },
+
             openExternal: function() {
+                 // แก้ไข Link ให้ถูกต้อง
                  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(window.app.currentPlaceName)}`, '_blank');
             },
+
             openRouteMap: function() {
                 if (window.app.localData.length === 0) return alert('เพิ่มสถานที่ก่อนนะครับ');
+                // สร้าง Link เส้นทาง A -> B -> C
                 const placesQuery = window.app.localData.map(item => encodeURIComponent(item.name)).join('/');
                 window.open(`https://www.google.com/maps/dir/${placesQuery}`, '_blank');
             },
+
             sendChat: function() {
-                    const input = document.getElementById('chatInput');
-                    const msg = input.value.trim();
-                    if (!msg) return;
-                    // ส่งข้อความพร้อมเวลา
-                    push(chatRef, { text: msg, time: Date.now() });
-                    input.value = '';
-                }
+                const input = document.getElementById('chatInput');
+                const msg = input.value.trim();
+                if (!msg) return;
+                
+                // ตรวจสอบชื่ออีกรอบกันเหนียว
+                if (!window.app.userName) window.app.init();
+
+                // ส่งข้อความ + เวลา + ชื่อคนส่ง
+                push(chatRef, { 
+                    text: msg, 
+                    user: window.app.userName, 
+                    time: Date.now() 
+                });
+                input.value = '';
+            }
         };
+
+        // เริ่มต้นทำงาน Check ชื่อ
+        window.app.init();
 
         // Banner Listener
         onValue(bannerRef, (snapshot) => {
@@ -183,6 +239,7 @@ const firebaseConfig = {
             }
         });
 
+        // Trip Data Listener
         onValue(tripRef, (snapshot) => {
             document.getElementById('loading').style.display = 'none';
             const list = document.getElementById('placeList');
@@ -219,25 +276,47 @@ const firebaseConfig = {
                 list.innerHTML = `<div class="text-center text-slate-400 mt-10 opacity-50">กดปุ่ม + เพื่อเพิ่มสถานที่</div>`;
             }
         });
+
+        // Chat Listener (Updated Logic)
         onValue(chatRef, (snapshot) => {
-                const chatBox = document.getElementById('chatBox');
-                chatBox.innerHTML = '';
-                const data = snapshot.val();
-                if (data) {
-                    const msgs = Object.values(data).sort((a, b) => a.time - b.time);
-                    msgs.forEach(msg => {
-                        const date = new Date(msg.time);
-                        const timeStr = date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
-                        const div = document.createElement('div');
-                        div.className = 'bg-white p-2 rounded-lg shadow-sm text-sm text-slate-700 w-fit max-w-[85%]';
-                        div.innerHTML = `<span>${msg.text}</span><span class="text-[10px] text-slate-300 ml-2">${timeStr}</span>`;
-                        chatBox.appendChild(div);
-                    });
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                } else {
-                    chatBox.innerHTML = '<div class="text-center text-xs text-slate-400 mt-20">No messages yet</div>';
-                }
-            });
+            const chatBox = document.getElementById('chatBox');
+            chatBox.innerHTML = '';
+            const data = snapshot.val();
+            
+            if (data) {
+                const msgs = Object.values(data).sort((a, b) => a.time - b.time);
+                
+                msgs.forEach(msg => {
+                    const date = new Date(msg.time);
+                    const timeStr = date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
+                    
+                    // เช็คว่าเป็นข้อความเราหรือไม่
+                    const isMe = msg.user === window.app.userName;
+                    
+                    // Style ตามฝั่ง
+                    const alignClass = isMe ? 'self-end items-end' : 'self-start items-start';
+                    const bgClass = isMe ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-white text-slate-700 rounded-bl-none';
+                    const nameDisplay = isMe ? '' : `<span class="text-[10px] text-slate-400 mb-1 ml-1">${msg.user || 'Unknown'}</span>`;
+
+                    const divContainer = document.createElement('div');
+                    divContainer.className = `flex flex-col max-w-[85%] ${alignClass}`;
+                    
+                    divContainer.innerHTML = `
+                        ${nameDisplay}
+                        <div class="${bgClass} px-3 py-2 rounded-2xl shadow-sm text-sm break-words relative min-w-[60px]">
+                            <span>${msg.text}</span>
+                            <div class="text-[9px] opacity-60 text-right mt-1 -mb-1">${timeStr}</div>
+                        </div>
+                    `;
+                    chatBox.appendChild(divContainer);
+                });
+                
+                // Auto scroll to bottom
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } else {
+                chatBox.innerHTML = '<div class="text-center text-xs text-slate-400 mt-20">เริ่มบทสนทนาได้เลย...</div>';
+            }
+        });
     </script>
 </body>
 </html>
