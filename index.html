@@ -143,6 +143,18 @@
                 }
             },
 
+            // 🛡️ ฟังก์ชันป้องกัน XSS (เพิ่มเข้ามาใหม่)
+            escapeHtml: function(text) {
+                if (!text) return text;
+                return text
+                    .toString()
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            },
+
             askName: function() {
                 let name = prompt("กรุณาใส่ชื่อเล่นของคุณ (เพื่อใช้ในแชท):");
                 if (name && name.trim() !== "") {
@@ -157,12 +169,13 @@
             resetName: function() {
                 localStorage.removeItem('trip_username');
                 this.askName();
-                location.reload(); // รีโหลดหน้าเพื่ออัปเดตแชทเก่าๆ ถ้าจำเป็น
+                location.reload(); 
             },
 
             addPlace: function() {
                 const name = document.getElementById('newPlaceName').value.trim();
                 if (!name) return;
+                // ส่งข้อมูลดิบเข้า Database (ไปแปลงตอนขาออก)
                 push(tripRef, { name: name, order: Date.now() });
                 document.getElementById('newPlaceName').value = '';
                 document.getElementById('addModal').classList.add('hidden');
@@ -187,23 +200,22 @@
 
             showInfo: function(name) {
                 window.app.currentPlaceName = name;
-                document.getElementById('infoTitle').innerText = name;
+                // innerText ปลอดภัยอยู่แล้ว ไม่ต้อง escape
+                document.getElementById('infoTitle').innerText = name; 
                 document.getElementById('infoModal').classList.remove('hidden');
-                // ใช้ URL Search ปกติ (อาจติด X-Frame แต่ดีกว่าจอขาว) หรือใช้ Bing Maps Embed จะง่ายกว่าถ้าไม่มี API Key
-                // แต่เพื่อความง่าย ใช้ Google Search query 
                 document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' รีวิว')}&igu=1`;
             },
 
             openExternal: function() {
-                 // แก้ไข Link ให้ถูกต้อง
-                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(window.app.currentPlaceName)}`, '_blank');
+                 // ✅ แก้ไข: เพิ่มเครื่องหมาย $ ที่หายไป
+                 window.open(`https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(window.app.currentPlaceName)}`, '_blank');
             },
 
             openRouteMap: function() {
                 if (window.app.localData.length === 0) return alert('เพิ่มสถานที่ก่อนนะครับ');
-                // สร้าง Link เส้นทาง A -> B -> C
                 const placesQuery = window.app.localData.map(item => encodeURIComponent(item.name)).join('/');
-                window.open(`https://www.google.com/maps/dir/${placesQuery}`, '_blank');
+                // ✅ แก้ไข: เพิ่มเครื่องหมาย $ ที่หายไป
+                window.open(`https://www.google.com/maps/dir/$${placesQuery}`, '_blank');
             },
 
             sendChat: function() {
@@ -211,10 +223,8 @@
                 const msg = input.value.trim();
                 if (!msg) return;
                 
-                // ตรวจสอบชื่ออีกรอบกันเหนียว
                 if (!window.app.userName) window.app.init();
 
-                // ส่งข้อความ + เวลา + ชื่อคนส่ง
                 push(chatRef, { 
                     text: msg, 
                     user: window.app.userName, 
@@ -224,7 +234,6 @@
             }
         };
 
-        // เริ่มต้นทำงาน Check ชื่อ
         window.app.init();
 
         // Banner Listener
@@ -232,6 +241,7 @@
             const message = snapshot.val();
             const banner = document.getElementById('adminBanner');
             if (message && message !== "") {
+                // ใช้ innerText เพื่อความปลอดภัย
                 document.getElementById('adminText').innerText = message;
                 banner.classList.remove('hidden');
             } else {
@@ -252,13 +262,17 @@
                 items.forEach((item, index) => {
                     const upBtn = index === 0 ? 'invisible' : '';
                     const downBtn = index === items.length - 1 ? 'invisible' : '';
+                    
+                    // 🛡️ ป้องกัน XSS: แปลงชื่อสถานที่ให้ปลอดภัย
+                    const safeName = window.app.escapeHtml(item.name);
+
                     const li = document.createElement('li');
                     li.className = 'ios-card p-3 flex flex-col border-l-4 border-indigo-500';
                     li.innerHTML = `
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center gap-3 overflow-hidden flex-1">
                                 <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0 flex items-center justify-center font-bold text-sm">${index + 1}</div>
-                                <span class="font-bold text-lg text-slate-800 truncate">${item.name}</span>
+                                <span class="font-bold text-lg text-slate-800 truncate">${safeName}</span>
                             </div>
                             <div class="flex flex-col gap-0.5">
                                 <button onclick="window.app.moveItem(${index}, -1)" class="w-8 h-6 bg-slate-50 rounded text-slate-400 ${upBtn}"><i class="fas fa-chevron-up text-xs"></i></button>
@@ -266,7 +280,7 @@
                             </div>
                         </div>
                         <div class="flex gap-2">
-                             <button onclick="window.app.showInfo('${item.name}')" class="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"><i class="fas fa-map-marked-alt"></i> ข้อมูล & แผนที่</button>
+                             <button onclick="window.app.showInfo('${safeName}')" class="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"><i class="fas fa-map-marked-alt"></i> ข้อมูล & แผนที่</button>
                             <button onclick="window.app.deleteItem('${item.key}')" class="w-10 bg-red-50 text-red-400 hover:bg-red-100 rounded-lg transition"><i class="fas fa-trash-alt"></i></button>
                         </div>`;
                     list.appendChild(li);
@@ -277,7 +291,7 @@
             }
         });
 
-        // Chat Listener (Updated Logic)
+        // Chat Listener
         onValue(chatRef, (snapshot) => {
             const chatBox = document.getElementById('chatBox');
             chatBox.innerHTML = '';
@@ -290,13 +304,15 @@
                     const date = new Date(msg.time);
                     const timeStr = date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
                     
-                    // เช็คว่าเป็นข้อความเราหรือไม่
                     const isMe = msg.user === window.app.userName;
                     
-                    // Style ตามฝั่ง
+                    // 🛡️ ป้องกัน XSS: แปลงข้อความแชทให้ปลอดภัย
+                    const safeText = window.app.escapeHtml(msg.text);
+                    const safeUser = window.app.escapeHtml(msg.user);
+                    
                     const alignClass = isMe ? 'self-end items-end' : 'self-start items-start';
                     const bgClass = isMe ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-white text-slate-700 rounded-bl-none';
-                    const nameDisplay = isMe ? '' : `<span class="text-[10px] text-slate-400 mb-1 ml-1">${msg.user || 'Unknown'}</span>`;
+                    const nameDisplay = isMe ? '' : `<span class="text-[10px] text-slate-400 mb-1 ml-1">${safeUser || 'Unknown'}</span>`;
 
                     const divContainer = document.createElement('div');
                     divContainer.className = `flex flex-col max-w-[85%] ${alignClass}`;
@@ -304,14 +320,13 @@
                     divContainer.innerHTML = `
                         ${nameDisplay}
                         <div class="${bgClass} px-3 py-2 rounded-2xl shadow-sm text-sm break-words relative min-w-[60px]">
-                            <span>${msg.text}</span>
+                            <span>${safeText}</span>
                             <div class="text-[9px] opacity-60 text-right mt-1 -mb-1">${timeStr}</div>
                         </div>
                     `;
                     chatBox.appendChild(divContainer);
                 });
                 
-                // Auto scroll to bottom
                 chatBox.scrollTop = chatBox.scrollHeight;
             } else {
                 chatBox.innerHTML = '<div class="text-center text-xs text-slate-400 mt-20">เริ่มบทสนทนาได้เลย...</div>';
