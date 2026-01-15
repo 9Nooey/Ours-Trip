@@ -106,7 +106,8 @@ const firebaseConfig = {
         const firebaseApp = initializeApp(firebaseConfig);
         const db = getDatabase(firebaseApp);
         const tripRef = ref(db, 'trips/group1');
-        const bannerRef = ref(db, 'trips/announcement'); 
+        const bannerRef = ref(db, 'trips/announcement');
+        const alertSound = new Audio("https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=message-incoming-132126.mp3");
 
         window.app = {
             localData: [],
@@ -164,7 +165,6 @@ const firebaseConfig = {
 
         onValue(tripRef, (snapshot) => {
             document.getElementById('loading').style.display = 'none';
-            const alertSound = new Audio("https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=message-incoming-132126.mp3");
             const list = document.getElementById('placeList');
             list.innerHTML = '';
             const data = snapshot.val();
