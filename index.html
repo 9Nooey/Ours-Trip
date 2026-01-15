@@ -107,8 +107,6 @@ const firebaseConfig = {
         const db = getDatabase(firebaseApp);
         const tripRef = ref(db, 'trips/group1');
         const bannerRef = ref(db, 'trips/announcement');
-        const alertSound = new Audio("https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=message-incoming-132126.mp3");
-
         window.app = {
             localData: [],
             currentPlaceName: '',
@@ -157,7 +155,6 @@ const firebaseConfig = {
             if (message && message !== "") {
                 document.getElementById('adminText').innerText = message;
                 banner.classList.remove('hidden');
-                alertSound.play().catch(e => console.log("แตะหน้าจอก่อนเสียงถึงจะดัง"));
             } else {
                 banner.classList.add('hidden');
             }
