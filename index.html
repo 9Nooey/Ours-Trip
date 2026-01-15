@@ -103,6 +103,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        let myName = localStorage.getItem('chatName');
+        if (!myName) {
+            myName = prompt('คุณชื่ออะไร? (ใส่ชื่อเล่น)');
+            if (myName) localStorage.setItem('chatName', myName);
+            else myName = 'คนดื้อ'; // ถ้าไม่ใส่ชื่อ
+        }
 
         // --- 🔴 ใส่ Config เดิมตรงนี้ ---
         // Your web app's Firebase configuration
@@ -166,9 +172,11 @@ const firebaseConfig = {
                     const msg = input.value.trim();
                     if (!msg) return;
                     // ส่งข้อความพร้อมเวลา
-                    push(chatRef, { text: msg, time: Date.now() });
-                    input.value = '';
-                }
+                    push(chatRef, { 
+                        user: myName, // ส่งชื่อไปด้วย
+                        text: msg, 
+                        time: Date.now() 
+                    });
         };
 
         // Banner Listener
@@ -219,23 +227,39 @@ const firebaseConfig = {
                 list.innerHTML = `<div class="text-center text-slate-400 mt-10 opacity-50">กดปุ่ม + เพื่อเพิ่มสถานที่</div>`;
             }
         });
-        onValue(chatRef, (snapshot) => {
+        nValue(chatRef, (snapshot) => {
                 const chatBox = document.getElementById('chatBox');
                 chatBox.innerHTML = '';
                 const data = snapshot.val();
+                
                 if (data) {
                     const msgs = Object.values(data).sort((a, b) => a.time - b.time);
+                    
                     msgs.forEach(msg => {
                         const date = new Date(msg.time);
                         const timeStr = date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
+                        
+                        // เช็คว่าเป็นข้อความเราไหม?
+                        const isMe = msg.user === myName;
+                        
                         const div = document.createElement('div');
-                        div.className = 'bg-white p-2 rounded-lg shadow-sm text-sm text-slate-700 w-fit max-w-[85%]';
-                        div.innerHTML = `<span>${msg.text}</span><span class="text-[10px] text-slate-300 ml-2">${timeStr}</span>`;
+                        // ถ้าเป็นเรา ชิดขวา(ml-auto) สีฟ้า / ถ้าคนอื่น ชิดซ้าย สีขาว
+                        div.className = isMe 
+                            ? 'ml-auto bg-indigo-100 p-2 rounded-t-lg rounded-bl-lg shadow-sm text-sm text-slate-800 w-fit max-w-[85%] text-right'
+                            : 'bg-white p-2 rounded-t-lg rounded-br-lg shadow-sm text-sm text-slate-800 w-fit max-w-[85%]';
+                        
+                        div.innerHTML = `
+                            <div class="font-bold text-[10px] ${isMe ? 'text-indigo-400' : 'text-orange-400'} mb-0.5">
+                                ${msg.user || 'นิรนาม'}
+                            </div>
+                            <span>${msg.text}</span>
+                            <span class="text-[9px] text-slate-400 ml-1">${timeStr}</span>
+                        `;
                         chatBox.appendChild(div);
                     });
                     chatBox.scrollTop = chatBox.scrollHeight;
                 } else {
-                    chatBox.innerHTML = '<div class="text-center text-xs text-slate-400 mt-20">No messages yet</div>';
+                    chatBox.innerHTML = '<div class="text-center text-xs text-slate-400 mt-20">ยังไม่มีข้อความ</div>';
                 }
             });
     </script>
