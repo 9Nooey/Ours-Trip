@@ -26,6 +26,7 @@
             border: 4px solid #ef4444;
             animation: blinkBorder 1s infinite;
         }
+        .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-slate-800">
@@ -97,7 +98,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-        // --- 🔴 ใส่ Config เดิมตรงนี้ ---
+        // --- Config ---
         const firebaseConfig = {
           apiKey: "AIzaSyAbm9E9R2CB9Ms5XHtgX7wqDqR8xRpohQg",
           authDomain: "mind-tripz.firebaseapp.com",
@@ -107,48 +108,53 @@
           messagingSenderId: "7159039265",
           appId: "1:7159039265:web:471d2f306f8a3d5d512a60"
         };
-        // -----------------------------
-
+        
+        // Init Firebase
         const firebaseApp = initializeApp(firebaseConfig);
         const db = getDatabase(firebaseApp);
         
         // References
         const tripRef = ref(db, 'trips/group1');
         const bannerRef = ref(db, 'trips/announcement');
-        // ลบ chatRef ออกแล้ว
 
         window.app = {
             localData: [],
             currentPlaceName: '',
-            
-            // ลบ userName, askName, resetName, sendChat ออกแล้ว
 
-            // 🛡️ ฟังก์ชันป้องกัน XSS
+            // Helper: Escape HTML
             escapeHtml: function(text) {
                 if (!text) return text;
-                return text
-                    .toString()
-                    .replace(/&/g, "&")
-                    .replace(/</g, "<")
-                    .replace(/>/g, ">")
-                    .replace(/"/g, """)
-                    .replace(/'/g, "'");
+                return String(text)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
             },
 
             addPlace: function() {
-                const name = document.getElementById('newPlaceName').value.trim();
+                const nameInput = document.getElementById('newPlaceName');
+                const name = nameInput.value.trim();
                 if (!name) return;
-                push(tripRef, { name: name, order: Date.now() });
-                document.getElementById('newPlaceName').value = '';
+                
+                push(tripRef, { name: name, order: Date.now() })
+                    .catch(err => alert("Error adding place: " + err.message));
+                
+                nameInput.value = '';
                 document.getElementById('addModal').classList.add('hidden');
             },
 
-            deleteItem: function(key) { if(confirm('ลบสถานที่นี้?')) remove(ref(db, 'trips/group1/' + key)); },
+            deleteItem: function(key) { 
+                if(confirm('ลบสถานที่นี้?')) {
+                    remove(ref(db, 'trips/group1/' + key)); 
+                }
+            },
 
             moveItem: function(index, direction) {
                 const current = window.app.localData[index];
                 const target = window.app.localData[index + direction];
                 if (!target) return;
+
                 const updates = {};
                 updates['trips/group1/' + current.key + '/order'] = target.order;
                 updates['trips/group1/' + target.key + '/order'] = current.order;
@@ -164,21 +170,25 @@
                 window.app.currentPlaceName = name;
                 document.getElementById('infoTitle').innerText = name; 
                 document.getElementById('infoModal').classList.remove('hidden');
+                // โหลดหน้า Google Search
                 document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' รีวิว')}&igu=1`;
             },
 
             openExternal: function() {
-                 window.open(`https://www.google.com/maps/search/?api=1&query=$$${encodeURIComponent(window.app.currentPlaceName)}`, '_blank');
+                 const name = window.app.currentPlaceName;
+                 // ใช้ Link มาตรฐาน Google Maps
+                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`, '_blank');
             },
 
             openRouteMap: function() {
                 if (window.app.localData.length === 0) return alert('เพิ่มสถานที่ก่อนนะครับ');
+                // สร้าง Link เส้นทาง (Dir)
                 const placesQuery = window.app.localData.map(item => encodeURIComponent(item.name)).join('/');
-                window.open(`https://www.google.com/maps/dir/$$${placesQuery}`, '_blank');
+                window.open(`https://www.google.com/maps/dir/${placesQuery}`, '_blank');
             }
         };
 
-        // Banner Listener
+        // --- Listener: Banner ---
         onValue(bannerRef, (snapshot) => {
             const message = snapshot.val();
             const banner = document.getElementById('adminBanner');
@@ -190,16 +200,19 @@
             }
         });
 
-        // Trip Data Listener
+        // --- Listener: Trip Data ---
         onValue(tripRef, (snapshot) => {
             document.getElementById('loading').style.display = 'none';
             const list = document.getElementById('placeList');
             list.innerHTML = '';
+            
             const data = snapshot.val();
             if (data) {
                 const items = Object.entries(data).map(([key, value]) => ({ key, ...value }));
                 items.sort((a, b) => (a.order || 0) - (b.order || 0));
+                
                 window.app.localData = items;
+
                 items.forEach((item, index) => {
                     const upBtn = index === 0 ? 'invisible' : '';
                     const downBtn = index === items.length - 1 ? 'invisible' : '';
@@ -229,9 +242,10 @@
                 window.app.localData = [];
                 list.innerHTML = `<div class="text-center text-slate-400 mt-10 opacity-50">กดปุ่ม + เพื่อเพิ่มสถานที่</div>`;
             }
+        }, (error) => {
+            console.error("Firebase Error:", error);
+            document.getElementById('loading').innerHTML = '<span class="text-red-500">โหลดข้อมูลไม่สำเร็จ (ตรวจสอบ Console)</span>';
         });
-
-        // ลบ Chat Listener ออกแล้ว
     </script>
 </body>
 </html>
