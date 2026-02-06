@@ -57,21 +57,6 @@
 
         <ul id="placeList" class="space-y-3 relative"></ul>
         
-        <div class="mt-8 mb-4 border-t border-slate-200 pt-4">
-            <div class="flex justify-between items-end mb-2 px-2">
-                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wide"><i class="far fa-comments"></i> Chat Room</h3>
-                <button onclick="app.resetName()" class="text-[10px] text-indigo-400 hover:text-indigo-600 underline">เปลี่ยนชื่อเล่น</button>
-            </div>
-            
-            <div id="chatBox" class="h-64 overflow-y-auto bg-slate-100 rounded-xl p-3 flex flex-col gap-2 mb-2 border border-slate-200 shadow-inner">
-                <div class="text-center text-xs text-slate-400 mt-20">Start chatting...</div>
-            </div>
-            
-            <div class="flex gap-2">
-                <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." class="flex-1 p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm">
-                <button onclick="app.sendChat()" class="bg-indigo-500 text-white px-4 rounded-xl shadow-sm hover:bg-indigo-600 transition"><i class="fas fa-paper-plane"></i></button>
-            </div>
-        </div>
     </main>
 
     <button onclick="app.openAddModal()" class="fixed bottom-8 right-6 w-16 h-16 btn-gradient text-white rounded-full shadow-xl flex items-center justify-center text-2xl z-30 transition hover:scale-110 active:scale-90">
@@ -130,52 +115,29 @@
         // References
         const tripRef = ref(db, 'trips/group1');
         const bannerRef = ref(db, 'trips/announcement');
-        const chatRef = ref(db, 'trips/chat');
+        // ลบ chatRef ออกแล้ว
 
         window.app = {
             localData: [],
             currentPlaceName: '',
-            userName: localStorage.getItem('trip_username') || '',
+            
+            // ลบ userName, askName, resetName, sendChat ออกแล้ว
 
-            init: function() {
-                if (!this.userName) {
-                    this.askName();
-                }
-            },
-
-            // 🛡️ ฟังก์ชันป้องกัน XSS (เพิ่มเข้ามาใหม่)
+            // 🛡️ ฟังก์ชันป้องกัน XSS
             escapeHtml: function(text) {
                 if (!text) return text;
                 return text
                     .toString()
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            },
-
-            askName: function() {
-                let name = prompt("กรุณาใส่ชื่อเล่นของคุณ (เพื่อใช้ในแชท):");
-                if (name && name.trim() !== "") {
-                    this.userName = name.trim();
-                    localStorage.setItem('trip_username', this.userName);
-                } else {
-                    this.userName = "นิรนาม";
-                    localStorage.setItem('trip_username', "นิรนาม");
-                }
-            },
-
-            resetName: function() {
-                localStorage.removeItem('trip_username');
-                this.askName();
-                location.reload(); 
+                    .replace(/&/g, "&")
+                    .replace(/</g, "<")
+                    .replace(/>/g, ">")
+                    .replace(/"/g, """)
+                    .replace(/'/g, "'");
             },
 
             addPlace: function() {
                 const name = document.getElementById('newPlaceName').value.trim();
                 if (!name) return;
-                // ส่งข้อมูลดิบเข้า Database (ไปแปลงตอนขาออก)
                 push(tripRef, { name: name, order: Date.now() });
                 document.getElementById('newPlaceName').value = '';
                 document.getElementById('addModal').classList.add('hidden');
@@ -200,48 +162,27 @@
 
             showInfo: function(name) {
                 window.app.currentPlaceName = name;
-                // innerText ปลอดภัยอยู่แล้ว ไม่ต้อง escape
                 document.getElementById('infoTitle').innerText = name; 
                 document.getElementById('infoModal').classList.remove('hidden');
                 document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' รีวิว')}&igu=1`;
             },
 
             openExternal: function() {
-                 // ✅ แก้ไข: เพิ่มเครื่องหมาย $ ที่หายไป
-                 window.open(`https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(window.app.currentPlaceName)}`, '_blank');
+                 window.open(`https://www.google.com/maps/search/?api=1&query=$$${encodeURIComponent(window.app.currentPlaceName)}`, '_blank');
             },
 
             openRouteMap: function() {
                 if (window.app.localData.length === 0) return alert('เพิ่มสถานที่ก่อนนะครับ');
                 const placesQuery = window.app.localData.map(item => encodeURIComponent(item.name)).join('/');
-                // ✅ แก้ไข: เพิ่มเครื่องหมาย $ ที่หายไป
-                window.open(`https://www.google.com/maps/dir/$${placesQuery}`, '_blank');
-            },
-
-            sendChat: function() {
-                const input = document.getElementById('chatInput');
-                const msg = input.value.trim();
-                if (!msg) return;
-                
-                if (!window.app.userName) window.app.init();
-
-                push(chatRef, { 
-                    text: msg, 
-                    user: window.app.userName, 
-                    time: Date.now() 
-                });
-                input.value = '';
+                window.open(`https://www.google.com/maps/dir/$$${placesQuery}`, '_blank');
             }
         };
-
-        window.app.init();
 
         // Banner Listener
         onValue(bannerRef, (snapshot) => {
             const message = snapshot.val();
             const banner = document.getElementById('adminBanner');
             if (message && message !== "") {
-                // ใช้ innerText เพื่อความปลอดภัย
                 document.getElementById('adminText').innerText = message;
                 banner.classList.remove('hidden');
             } else {
@@ -263,7 +204,6 @@
                     const upBtn = index === 0 ? 'invisible' : '';
                     const downBtn = index === items.length - 1 ? 'invisible' : '';
                     
-                    // 🛡️ ป้องกัน XSS: แปลงชื่อสถานที่ให้ปลอดภัย
                     const safeName = window.app.escapeHtml(item.name);
 
                     const li = document.createElement('li');
@@ -291,47 +231,7 @@
             }
         });
 
-        // Chat Listener
-        onValue(chatRef, (snapshot) => {
-            const chatBox = document.getElementById('chatBox');
-            chatBox.innerHTML = '';
-            const data = snapshot.val();
-            
-            if (data) {
-                const msgs = Object.values(data).sort((a, b) => a.time - b.time);
-                
-                msgs.forEach(msg => {
-                    const date = new Date(msg.time);
-                    const timeStr = date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
-                    
-                    const isMe = msg.user === window.app.userName;
-                    
-                    // 🛡️ ป้องกัน XSS: แปลงข้อความแชทให้ปลอดภัย
-                    const safeText = window.app.escapeHtml(msg.text);
-                    const safeUser = window.app.escapeHtml(msg.user);
-                    
-                    const alignClass = isMe ? 'self-end items-end' : 'self-start items-start';
-                    const bgClass = isMe ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-white text-slate-700 rounded-bl-none';
-                    const nameDisplay = isMe ? '' : `<span class="text-[10px] text-slate-400 mb-1 ml-1">${safeUser || 'Unknown'}</span>`;
-
-                    const divContainer = document.createElement('div');
-                    divContainer.className = `flex flex-col max-w-[85%] ${alignClass}`;
-                    
-                    divContainer.innerHTML = `
-                        ${nameDisplay}
-                        <div class="${bgClass} px-3 py-2 rounded-2xl shadow-sm text-sm break-words relative min-w-[60px]">
-                            <span>${safeText}</span>
-                            <div class="text-[9px] opacity-60 text-right mt-1 -mb-1">${timeStr}</div>
-                        </div>
-                    `;
-                    chatBox.appendChild(divContainer);
-                });
-                
-                chatBox.scrollTop = chatBox.scrollHeight;
-            } else {
-                chatBox.innerHTML = '<div class="text-center text-xs text-slate-400 mt-20">เริ่มบทสนทนาได้เลย...</div>';
-            }
-        });
+        // ลบ Chat Listener ออกแล้ว
     </script>
 </body>
 </html>
