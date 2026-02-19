@@ -80,16 +80,19 @@
             <h3 id="infoTitle" class="font-bold text-lg truncate pr-4 text-indigo-900"></h3>
             <button onclick="document.getElementById('infoModal').classList.add('hidden')" class="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200"><i class="fas fa-times"></i></button>
         </div>
-        <div class="flex-1 relative bg-slate-50">
-             <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 z-0">
-                <i class="fas fa-map-marked-alt text-4xl mb-2 text-slate-300"></i>
-                <span class="text-sm">กำลังดึงข้อมูล...</span>
+        <div class="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+            <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                <i class="fab fa-google text-indigo-600 text-3xl"></i>
             </div>
-            <iframe id="googleFrame" class="w-full h-full border-0 relative z-10 bg-white" allow="geolocation"></iframe>
-        </div>
-        <div class="p-4 bg-white border-t safe-area-pb">
-            <button onclick="app.openExternal()" class="w-full py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-100">
-                <i class="fas fa-external-link-alt"></i> เปิดใน Google Maps App
+            <h4 class="text-xl font-bold mb-2">ค้นหาข้อมูลใน Google</h4>
+            <p class="text-slate-500 mb-8">เนื่องจากนโยบายความปลอดภัย เราจะพาคุณไปยังหน้าค้นหาของ Google โดยตรง</p>
+            
+            <button onclick="app.openGoogleSearch()" class="w-full max-w-xs py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg mb-3">
+                <i class="fas fa-search"></i> ค้นหารีวิวใน Google
+            </button>
+            
+            <button onclick="app.openExternal()" class="w-full max-w-xs py-4 bg-white text-indigo-600 border-2 border-indigo-600 rounded-2xl font-bold">
+                <i class="fas fa-map-marker-alt"></i> เปิดใน Google Maps
             </button>
         </div>
     </div>
@@ -109,7 +112,6 @@
           appId: "1:364744279782:web:b741af581f97b8d1081d27"
         };
 
-        
         // Init Firebase
         const firebaseApp = initializeApp(firebaseConfig);
         const db = getDatabase(firebaseApp);
@@ -139,7 +141,7 @@
                 if (!name) return;
                 
                 push(tripRef, { name: name, order: Date.now() })
-                    .catch(err => alert("Error adding place: " + err.message));
+                    .catch(err => alert("Error: " + err.message));
                 
                 nameInput.value = '';
                 document.getElementById('addModal').classList.add('hidden');
@@ -171,19 +173,20 @@
                 window.app.currentPlaceName = name;
                 document.getElementById('infoTitle').innerText = name; 
                 document.getElementById('infoModal').classList.remove('hidden');
-                // โหลดหน้า Google Search
-                document.getElementById('googleFrame').src = `https://www.google.com/search?q=${encodeURIComponent(name + ' รีวิว')}&igu=1`;
+            },
+
+            openGoogleSearch: function() {
+                const url = `https://www.google.com/search?q=${encodeURIComponent(window.app.currentPlaceName + ' รีวิว')}`;
+                window.open(url, '_blank');
             },
 
             openExternal: function() {
                  const name = window.app.currentPlaceName;
-                 // ใช้ Link มาตรฐาน Google Maps
-                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`, '_blank');
+                 window.open(`https://www.google.com/maps/search/${encodeURIComponent(name)}`, '_blank');
             },
 
             openRouteMap: function() {
                 if (window.app.localData.length === 0) return alert('เพิ่มสถานที่ก่อนนะครับ');
-                // สร้าง Link เส้นทาง (Dir)
                 const placesQuery = window.app.localData.map(item => encodeURIComponent(item.name)).join('/');
                 window.open(`https://www.google.com/maps/dir/${placesQuery}`, '_blank');
             }
@@ -215,8 +218,8 @@
                 window.app.localData = items;
 
                 items.forEach((item, index) => {
-                    const upBtn = index === 0 ? 'invisible' : '';
-                    const downBtn = index === items.length - 1 ? 'invisible' : '';
+                    const upBtnClass = index === 0 ? 'invisible' : '';
+                    const downBtnClass = index === items.length - 1 ? 'invisible' : '';
                     
                     const safeName = window.app.escapeHtml(item.name);
 
@@ -229,12 +232,12 @@
                                 <span class="font-bold text-lg text-slate-800 truncate">${safeName}</span>
                             </div>
                             <div class="flex flex-col gap-0.5">
-                                <button onclick="window.app.moveItem(${index}, -1)" class="w-8 h-6 bg-slate-50 rounded text-slate-400 ${upBtn}"><i class="fas fa-chevron-up text-xs"></i></button>
-                                <button onclick="window.app.moveItem(${index}, 1)" class="w-8 h-6 bg-slate-50 rounded text-slate-400 ${downBtn}"><i class="fas fa-chevron-down text-xs"></i></button>
+                                <button onclick="window.app.moveItem(${index}, -1)" class="w-8 h-6 bg-slate-50 rounded text-slate-400 ${upBtnClass}"><i class="fas fa-chevron-up text-xs"></i></button>
+                                <button onclick="window.app.moveItem(${index}, 1)" class="w-8 h-6 bg-slate-50 rounded text-slate-400 ${downBtnClass}"><i class="fas fa-chevron-down text-xs"></i></button>
                             </div>
                         </div>
                         <div class="flex gap-2">
-                             <button onclick="window.app.showInfo('${safeName}')" class="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"><i class="fas fa-map-marked-alt"></i> ข้อมูล & แผนที่</button>
+                             <button onclick="window.app.showInfo('${safeName.replace(/'/g, "\\'")}')" class="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"><i class="fas fa-map-marked-alt"></i> ข้อมูล & แผนที่</button>
                             <button onclick="window.app.deleteItem('${item.key}')" class="w-10 bg-red-50 text-red-400 hover:bg-red-100 rounded-lg transition"><i class="fas fa-trash-alt"></i></button>
                         </div>`;
                     list.appendChild(li);
@@ -245,7 +248,7 @@
             }
         }, (error) => {
             console.error("Firebase Error:", error);
-            document.getElementById('loading').innerHTML = '<span class="text-red-500">โหลดข้อมูลไม่สำเร็จ (ตรวจสอบ Console)</span>';
+            document.getElementById('loading').innerHTML = '<span class="text-red-500">โหลดข้อมูลไม่สำเร็จ</span>';
         });
     </script>
 </body>
